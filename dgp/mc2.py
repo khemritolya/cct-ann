@@ -50,7 +50,7 @@ class MC2(MC1):
             #     5 * x2 ** 3 + 0.5 * x1 + np.sin(3.14 * x3) + x1 * x3
             # )  # np.sqrt((5 * x1 + 2 * x2 ** 2 + 0.5 * x3 ** 2) / 7.5)
 
-        y2 = x1 + 0.5 * eps2 + eps
+        y2 = 3.0 * x1 + 0.5 * eps2 + eps
         y3 = stats.norm.cdf(u3 + 0.5 * eps3)
         x_high_dim = None
 
