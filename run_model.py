@@ -79,6 +79,90 @@ def main(parser, provided_args=None, return_locals=False, identity_only=False):
         torchvec["endogenous"]
     )
     inefficient_model = deepcopy(model.state_dict())
+    # ---- Diagnostic: plot estimated vs true structural function ----
+    import numpy as np
+    import matplotlib.pyplot as plt
+ 
+    _endo = npvec["endogenous"]  # shape [n, d]; col 0 is y2 (feature of interest)
+ 
+    # Grid: y2 runs over its 5th–95th percentile; all other features fixed at mean
+    _y2_grid = np.linspace(
+        np.percentile(_endo[:, 0], 5),
+        np.percentile(_endo[:, 0], 95),
+        200,
+    )
+    _other_means = _endo[:, 1:].mean(axis=0)  # mean of every other feature
+ 
+    # Build input matrix: [y2_grid, mean_y3, mean_x2, mean_x_highdim...]
+    _grid_endo = np.column_stack([
+        _y2_grid,
+        np.tile(_other_means, (len(_y2_grid), 1)),
+    ])
+ 
+    # Estimated function and its derivative w.r.t. y2 (index 0) via autograd
+    _grid_tensor = torch.tensor(_grid_endo, dtype=torch.float32)
+    model.eval()
+    with torch.no_grad():
+        _y_hat = model(_grid_tensor).numpy().flatten()
+    # Derivative: d(model)/d(y2) at each grid point
+    _grid_tensor_grad = torch.tensor(_grid_endo, dtype=torch.float32, requires_grad=False)
+    _probe = torch.zeros(len(_y2_grid), 1, requires_grad=True)
+    _grid_with_probe = torch.cat([_grid_tensor[:, [0]] + _probe, _grid_tensor[:, 1:]], dim=1)
+    model(_grid_with_probe).sum().backward()
+    _dy_hat = _probe.grad.numpy().flatten()
+    model.train()
+ 
+    # True structural function: y1 = y2 + h01(y3_mean) + h02(x2_mean) + complex_func(x_hd_mean)
+    # True derivative w.r.t. y2 is exactly 1 everywhere (linear in y2 in mc2).
+    _h01 = dgp.h01  # sigmoid
+    _h02 = dgp.h02  # log(1+x)
+    _y3_mean = _other_means[0]
+    _x2_mean = _other_means[1]
+    _true_base = np.cos(_y2_grid) + _h01(_y3_mean) + _h02(_x2_mean)
+    if hasattr(dgp, "complex_func") and dgp.high_dim_relevant and _endo.shape[1] > 3:
+        _xhd_mean = _other_means[2:]
+        _true_base += dgp.complex_func(_xhd_mean[None, :]).item()
+    _true_deriv = -np.sin(_y2_grid)  # d/d(y2) of cos(y2)
+ 
+    # Level-shift true function to share midpoint with model estimate
+    _mid = len(_y2_grid) // 2
+    _true_shifted = _true_base - _true_base[_mid] + _y_hat[_mid]
+ 
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+ 
+    ax1.plot(_y2_grid, _true_shifted, label="True $h(y_2, \\bar{\\cdot})$ (level-shifted)", lw=2)
+    ax1.plot(_y2_grid, _y_hat, label="Estimated $\\hat{h}(y_2, \\bar{\\cdot})$", lw=2, ls="--")
+    ax1.set_xlabel("$y_2$ (feature of interest)")
+    ax1.set_ylabel("$y_1$")
+    ax1.set_title("Structural function")
+    ax1.legend()
+ 
+    ax2.plot(_y2_grid, _true_deriv, label="True $\\partial h / \\partial y_2 = -\\sin(y_2)$", lw=2)
+    ax2.plot(_y2_grid, _dy_hat, label="Estimated $\\partial \\hat{h} / \\partial y_2$", lw=2, ls="--")
+    ax2.axhline(inefficient_parameter_estimate, color="grey", ls=":", lw=1.5,
+                label=f"Avg derivative = {inefficient_parameter_estimate:.3f}")
+    ax2.set_xlabel("$y_2$ (feature of interest)")
+    ax2.set_ylabel("Derivative")
+    ax2.set_title("Derivative w.r.t. $y_2$")
+    ax2.legend()
+ 
+    fig.suptitle(
+        f"Dataset: {config.get('dataset', '?')} — other features fixed at sample mean (inefficient estimate)",
+        fontsize=11,
+    )
+    plt.tight_layout()
+    plt.savefig("diagnostic_structural_slice.png", dpi=120)
+    plt.show()
+    print("Diagnostic plot saved to diagnostic_structural_slice.png")
+    
+    _test_y2 = np.array([0.0, np.pi/2, np.pi])
+    _test_endo = np.column_stack([_test_y2, np.tile(_other_means, (3, 1))])
+    print("True y1 values at y2=0, pi/2, pi:", 
+      _test_y2 + dgp.h01(_other_means[0]) + dgp.h02(_other_means[1]))
+    
+    breakpoint()
+    # ---- end diagnostic ----
+ 
 
     if not args.no_tqdm:
         print(f"initial estimate = {inefficient_parameter_estimate}")

@@ -69,11 +69,11 @@ class MC2(MC1):
             # eps *= 0.5 + 0.25 * x_high_dim[:, -1] ** 2 + np.exp(x_high_dim[:, 0]) * x1
 
             if self.high_dim_relevant:
-                y1 = y2 + h01(y3) + h02(x2) + eps + self.complex_func(x_high_dim)
+                y1 = np.cos(y2) + h01(y3) + h02(x2) + eps + self.complex_func(x_high_dim)
             else:
-                y1 = y2 + h01(y3) + h02(x2) + eps
+                y1 = np.cos(y2) + h01(y3) + h02(x2) + eps
         else:
-            y1 = y2 + h01(y3) + h02(x2) + eps
+            y1 = np.cos(y2) + h01(y3) + h02(x2) + eps
 
         transformed_instrument = (
             self.transform_instrument(instrument) if transform_instrument else None
