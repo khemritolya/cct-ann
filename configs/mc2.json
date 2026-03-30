@@ -16,7 +16,7 @@
     "dataset": "mc2",
     "regularizer": "none",
     "optimizer": "adam",
-    "data_nuisance_dimension": 10,
+    "data_nuisance_dimension": 0,
     "data_nuisance_relevant": true,
     "data_corr": 0.5
 }
