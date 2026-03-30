@@ -1,7 +1,7 @@
 {
     "arch_depth": 3,
     "arch_width": 10,
-    "arch_hidden_activation": "relu",
+    "arch_hidden_activation": "tanh",
     "opt_learning_rate": 0.01,
     "opt_weight_decay": 0,
     "train_max_epoch": 5000,

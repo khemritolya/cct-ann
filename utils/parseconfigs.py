@@ -56,7 +56,7 @@ dataset_dict = {
     "calibrated_gasdemand": CalibratedGasDemand,
 }
 
-activation_dict = {"relu": nn.ReLU, "sigmoid": nn.Sigmoid}
+activation_dict = {"relu": nn.ReLU, "sigmoid": nn.Sigmoid, "tanh": nn.Tanh}
 callback_dict = {
     "callback": callback,
     "tensorboard_callback": tensorboard_callback,
